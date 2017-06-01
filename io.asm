@@ -6,6 +6,7 @@ model small
 	buffer_size     equ 1600
 	buffer          dd buffer_size, ?, buffer_size dup(?) ; Буффер
 
+	handle          dw 0 ; Дескриптор файла
 	file_length     equ 50 ; Длинна вводимого пути файлов
 	input_file      db file_length, ?, file_length dup(0)
 	output_file     db file_length, ?, file_length dup(0)
@@ -50,14 +51,14 @@ file_read_remove_enter:
 	mov input_file[esi], 0h
 	xor si, si
 
-file_read_next:
 	mov ax, 3d00h ; Открываем для чтения
 	lea dx, input_file ; DS:DX указатель на имя файла
 	add dx, 2
 	int 21h ; В ax деcкриптор файла
 	jc file_error ; Если поднят флаг С, то ошибка открытия
 
-	mov bx, ax ; Копируем в bx указатель файла
+	mov handle, ax ; Сохраняем указатель файла
+	mov bx, handle
 	xor cx, cx
 	xor dx, dx
 	mov ax, 4200h
@@ -69,7 +70,6 @@ file_read_loop:
 	mov ah, 3fh ; Будем читать из файла
 	mov cx, 1 ; 1 байт
 	int 21h
-
 
 	cmp ax, cx ; Если достигнуть EoF или ошибка чтения
 	jnz file_read_close ; То закрываем файл закрываем файл
@@ -84,12 +84,19 @@ file_read_loop:
 
 	jmp file_read_loop
 
-; CL/RF
 file_read_work:
-	push edx
 	call work
-	pop esi
-	jmp file_read_next
+
+	; Восстанавливаем нужное место
+    mov bx, handle
+	lea dx, buffer
+	lea si, buffer
+	
+	; Пропускаем 0Ah (CL/RF)
+	dec dx
+	dec si
+
+	jmp file_read_loop
 
 file_read_close: ; Закрываем файл, после чтения
 	mov ah, 3eh
@@ -135,8 +142,12 @@ file_save_process:
 	mov cx, 1 ; Размер данных
 	xor dx, dx
 	xor di, di
+	pop si
 
 file_save_process_loop:
+	cmp result[di], "$"
+	je file_save_close
+
 	mov ah, 40h ; Функция DOS 40h (запись в файл)
 	mov dx, si ; Данные
 	int 21h
@@ -144,10 +155,6 @@ file_save_process_loop:
 	jc file_error ; Вывод сообщения об ошибке
 
 	inc di
-
-	cmp result[di], "$"
-	je file_save_close
-
 	inc si
 
 	jmp file_save_process_loop

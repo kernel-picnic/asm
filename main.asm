@@ -146,13 +146,13 @@ work_compare:
 	je work_write_true
 
 work_write_false:
-	mov ax, result_pos
-	mov result[eax], "0"
+	mov si, result_pos
+	mov result[esi], "0"
 	ret
 
 work_write_true:
-	mov ax, result_pos
-	mov result[eax], "1"
+	mov si, result_pos
+	mov result[esi], "1"
 	ret
 work endp
 
@@ -172,7 +172,7 @@ file_save:
 	cmp result[0], "$" ; Проверяем, есть ли результат
 	je no_result
 	
-	lea si, result
+	push offset result
 	call io_file_save
 
 	jmp main
