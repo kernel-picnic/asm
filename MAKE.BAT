@@ -1,7 +1,7 @@
-tasm /zi main
-tasm /zi io
-tasm /zi menu
+TASM /zi main
+TASM /zi menu
+TASM /zi io
 
-tlink /vf /3 main.obj + io.obj + menu.obj
+TLINK /vi /3 main.obj + menu.obj + io.obj
 
-td main
+TD main.exe

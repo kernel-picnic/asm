@@ -36,7 +36,6 @@ extrn io_file_read:near
 extrn io_file_save:near
 
 extrn buffer:byte
-extrn empty_buffer
 
 public result
 public result_size
@@ -85,11 +84,6 @@ new_string:
 	xor ax, ax
 	xor bx, bx
 
-	mov ecx, 1000
-	xor esi, esi
-
-	call empty_buffer
-
 	mov main_sum, 0b
 	mov si, 2
 
@@ -108,7 +102,7 @@ new_string_loop:
 ; =============== Обработка строк ===============
 
 work:
-	cmp buffer[esi], 3h
+	cmp buffer[esi], "$"
 	je main
 
 	cmp buffer[esi], 0Dh
@@ -131,8 +125,8 @@ work_sign:
 	je work_compare
 	cmp ax, 0Ah
 	je work_compare
-	;cmp ax, "$"
-	;je work_compare
+	cmp ax, "$"
+	je work_compare
 
 	call work_quadruple
 	
@@ -195,7 +189,7 @@ file_read:
 ; =============== Сохранение файла ===============
 
 file_save:
-	cmp result[0], "$" ; Проверяем, есть ли результат
+	cmp result[0], 0 ; Проверяем, есть ли результат
 	je no_result
 	
 	lea si, result
