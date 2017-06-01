@@ -110,7 +110,7 @@ io_file_read endp
 io_file_save proc near
 	; На всякий пожарный почистим переменную
 	; с файлом, в который будет веведен результат
-	call flush_output_file
+	; call flush_output_file
 
 	lea dx, file_input_str
 	mov ah, 9
@@ -142,7 +142,6 @@ file_save_process:
 	mov cx, 1 ; Размер данных
 	xor dx, dx
 	xor di, di
-	pop si
 
 file_save_process_loop:
 	cmp result[di], "$"

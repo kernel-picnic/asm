@@ -172,7 +172,7 @@ file_save:
 	cmp result[0], "$" ; Проверяем, есть ли результат
 	je no_result
 	
-	push offset result
+	lea si, result
 	call io_file_save
 
 	jmp main
