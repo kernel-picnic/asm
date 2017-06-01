@@ -102,6 +102,12 @@ file_read_close: ; Закрываем файл, после чтения
 	mov ah, 3eh
 	int 21h
 
+	; Самостоятельно записываем 0Dh,
+	; иначе обработка не найдет конец строки
+	mov ax, 000Dh
+	mov [esi], eax
+	call work
+
 	ret
 io_file_read endp
 
