@@ -16,7 +16,7 @@ model small
 	part1         dd 0b
 	part2         dd 0b
 
-	result_size   equ 10000 ; Максимальный размер результата
+	result_size   equ 30000 ; Максимальный размер результата
 	result_pos    dw -1 ; Текущая позиция результата
 	result        db result_size dup("$") ; Результат обработки строк
 
