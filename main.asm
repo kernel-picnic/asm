@@ -7,7 +7,7 @@
 model small
 .stack 100h
 .data
-	main_string   db 50, ?, 50 dup("$") ; Главная строка
+	main_string   db 255, ?, 255 dup("$") ; Главная строка
 	tmp           db 2, ?, 2 dup(0) ; Хранение ввода пункта меню
 
 	sum           dd 0b ; Хеши строк
@@ -16,7 +16,8 @@ model small
 	part1         dd 0b
 	part2         dd 0b
 
-	result_size   equ 20 ; Максимальный размер результата
+	result_size   equ 10000 ; Максимальный размер результата
+	result_pos    dw -1 ; Текущая позиция результата
 	result        db result_size dup("$") ; Результат обработки строк
 
 	input_string  db 'Input string:',10,13,"$"
@@ -37,7 +38,9 @@ extrn io_file_save:near
 
 extrn buffer:byte
 
+public work
 public result
+public result_pos
 public result_size
 
 start:
@@ -81,9 +84,6 @@ new_string:
 	mov ah, 0ah
 	int 21h
 
-	xor ax, ax
-	xor bx, bx
-
 	mov main_sum, 0b
 	mov si, 2
 
@@ -101,20 +101,10 @@ new_string_loop:
 
 ; =============== Обработка строк ===============
 
-work:
-	cmp buffer[esi], "$"
-	je main
-
-	cmp buffer[esi], 0Dh
-	je work_skip
-	cmp buffer[esi], 0Ah
-	je work_skip
-
+work proc near
 	xor ax, ax
-	xor bx, bx
-
-	inc cx
-
+	xor si, si
+	inc result_pos
 	mov sum, 0
 
 work_sign:
@@ -122,10 +112,6 @@ work_sign:
 
 	; Конец строки
 	cmp ax, 0Dh
-	je work_compare
-	cmp ax, 0Ah
-	je work_compare
-	cmp ax, "$"
 	je work_compare
 
 	call work_quadruple
@@ -160,16 +146,15 @@ work_compare:
 	je work_write_true
 
 work_write_false:
-	mov result[ecx], "0"
-	jmp work
+	mov ax, result_pos
+	mov result[eax], "0"
+	ret
 
 work_write_true:
-	mov result[ecx], "1"
-	jmp work
-
-work_skip:
-	inc si
-	jmp work
+	mov ax, result_pos
+	mov result[eax], "1"
+	ret
+work endp
 
 ; =============== Загрузка из файла ===============
 
@@ -178,18 +163,13 @@ file_read:
 	je no_string
 
 	call io_file_read
-	jc main
-	
-	mov cx, -1
-	xor si, si
-	lea dx, buffer
 
-	jmp work
+	jmp main
 
 ; =============== Сохранение файла ===============
 
 file_save:
-	cmp result[0], 0 ; Проверяем, есть ли результат
+	cmp result[0], "$" ; Проверяем, есть ли результат
 	je no_result
 	
 	lea si, result
