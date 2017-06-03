@@ -4,28 +4,34 @@ model small
 .stack 100h
 .data
 	buffer_size     equ 1600
-	buffer          dd buffer_size, ?, buffer_size dup(?) ; Буффер
+	buffer          dw buffer_size, ?, buffer_size dup(?) ; Буффер
 
 	handle          dw 0 ; Дескриптор файла
 	file_length     equ 50 ; Длинна вводимого пути файлов
 	input_file      db file_length, ?, file_length dup(0)
 	output_file     db file_length, ?, file_length dup(0)
+	result_file     db file_length dup(0) ; Temp файл для хранения результата
 
 	file_input_str  db 'Input filename: ',10,13,"$"
 	file_error_str  db 'Error while processing file. ;-(',10,13,"$" 
+	
+	gen_m	db      128
+	gen_а	db      11
+	gen_x	db      3	            ; начальное значение
 
 .code
 .486
 
 extrn work:near
-
-extrn result:byte
-extrn result_pos:word
-extrn result_size:abs
+extrn print_no_result:near
+extrn rand:near
+extrn seed:word
 
 public buffer
 public io_file_read
 public io_file_save
+public io_result_true
+public io_result_false
 
 ; =============== Загрузка строк из файла ===============
 
@@ -43,10 +49,10 @@ io_file_read proc near
 	mov si, 1
 
 ; Удаляем enter, иначе файл не будет обработан
-file_read_remove_enter:
+io_file_read_remove_enter:
 	inc si
 	cmp input_file[esi], 0Dh
-	jne file_read_remove_enter
+	jne io_file_read_remove_enter
 
 	mov input_file[esi], 0h
 	xor si, si
@@ -55,7 +61,7 @@ file_read_remove_enter:
 	lea dx, input_file ; DS:DX указатель на имя файла
 	add dx, 2
 	int 21h ; В ax деcкриптор файла
-	jc file_error ; Если поднят флаг С, то ошибка открытия
+	jc io_file_error ; Если поднят флаг С, то ошибка открытия
 
 	mov handle, ax ; Сохраняем указатель файла
 	mov bx, handle
@@ -66,25 +72,25 @@ file_read_remove_enter:
 	lea dx, buffer
 	lea si, buffer
 
-file_read_loop:
+io_file_read_loop:
 	mov ah, 3fh ; Будем читать из файла
 	mov cx, 1 ; 1 байт
 	int 21h
 
 	cmp ax, cx ; Если достигнуть EoF или ошибка чтения
-	jnz file_read_close ; То закрываем файл закрываем файл
+	jnz io_file_read_close ; То закрываем файл закрываем файл
 
 	lodsb
 
 	cmp al, 0Dh
-	je file_read_work ; Конец строки
+	je io_file_read_work ; Конец строки
 
 	mov ax, 4200h
 	inc dx
 
-	jmp file_read_loop
+	jmp io_file_read_loop
 
-file_read_work:
+io_file_read_work:
 	call work
 
 	; Восстанавливаем нужное место
@@ -96,9 +102,9 @@ file_read_work:
 	dec dx
 	dec si
 
-	jmp file_read_loop
+	jmp io_file_read_loop
 
-file_read_close: ; Закрываем файл, после чтения
+io_file_read_close: ; Закрываем файл, после чтения
 	mov ah, 3eh
 	int 21h
 
@@ -128,10 +134,10 @@ io_file_save proc near
 
 	mov bx, 1
 
-file_save_remove_enter:
+io_file_save_remove_enter:
 	inc bx
 	cmp output_file[ebx], 0Dh
-	jne file_save_remove_enter
+	jne io_file_save_remove_enter
 
 	mov output_file[ebx], 0h
 
@@ -140,55 +146,164 @@ file_save_remove_enter:
 	add dx, 2
 	xor cx, cx ; Нет атрибутов - обычный файл
 	int 21h ; Обращение к функции DOS
-	jnc file_save_process ; Если нет ошибки, то продолжаем
-	jmp file_error
+	jnc io_file_save_process ; Если нет ошибки, то продолжаем
+	jmp io_file_error
 
-file_save_process:
+io_file_save_process:
 	mov bx, ax ; Дескриптор файла
 	mov cx, 1 ; Размер данных
 	xor dx, dx
 	xor di, di
 
-file_save_process_loop:
-	cmp result[di], "$"
-	je file_save_close
+io_file_save_process_loop:
+	;cmp result[di], "$"
+	;je io_file_save_close
 
 	mov ah, 40h ; Функция DOS 40h (запись в файл)
 	mov dx, si ; Данные
 	int 21h
 
-	jc file_error ; Вывод сообщения об ошибке
+	jc io_file_error ; Вывод сообщения об ошибке
 
 	inc di
 	inc si
 
-	jmp file_save_process_loop
+	jmp io_file_save_process_loop
 
-file_save_close:
+io_file_save_close:
 	mov ah, 3Eh ; Функция DOS 3Eh (закрытие файла)
 	int 21h
 	jnc exit ; Если нет ошибки, то выход из программы
-	jmp file_error ; Вывод сообщения об ошибке
+	jmp io_file_error ; Вывод сообщения об ошибке
 io_file_save endp
 
 ; =============== Ошибка обработки файла ===============
 
-file_error:
+io_file_error:
 	lea dx, file_error_str
 	mov ah, 9
 	int 21h
 
 	ret
+	
+; =============== Сохранение и выгрузка результата ===============
+
+io_result_true proc near
+	call io_result_open
+	mov dx, "1"
+	call io_result_write
+
+	ret
+io_result_true endp
+
+io_result_false proc near
+	call io_result_open
+	mov dx, "0"
+	call io_result_write
+
+	ret
+io_result_false endp
+
+io_result_open:
+	cmp result_file[0], 0 ; Проверяем, есть ли название у temp файла
+	je io_result_create
+
+	mov ax, 3d00h ; Открываем для чтения
+	lea dx, result_file ; DS:DX указатель на имя файла
+	add dx, 2
+	int 21h ; В ax деcкриптор файла
+	
+io_result_open_seek:
+	mov bx, ax
+	xor cx, cx
+	xor dx, dx
+	mov ax, 4202h
+	int 21h
+
+	ret
+
+io_result_write:
+	mov cx, 1 ; Размер данных
+
+	mov ah, 40h ; Функция DOS 40h (запись в файл)
+	int 21h
+
+	mov ah, 3Eh ; Функция DOS 3Eh (закрытие файла)
+	int 21h
+
+	ret
+
+io_result_create:
+	xor si, si
+	mov result_file[esi], "."
+	inc si
+
+	mov cx, 3
+
+io_result_create_loop:
+	push cx
+	call rand
+	mov ax, seed
+	or ax, 3030h
+	mov result_file[esi], ah
+	inc si
+	mov result_file[esi], al
+	inc si
+	
+	pop cx
+	loop io_result_create_loop
+	
+io_result_create_open:
+	mov ah, 3Ch ; Создание файла
+	lea dx, result_file
+	mov cx, 1 ; Скрытый файл
+	int 21h
+	jnc io_result_open_seek ; Если нет ошибки, то продолжаем
+	jmp io_file_error
+	
+; =============== Вывод результата на экран ===============
+
+print_result proc near
+	cmp result_file[0], 0 ; Проверяем, есть ли результат
+	je print_result_error
+
+	mov ax, 3d00h ; Открываем для чтения
+	lea dx, result_file ; DS:DX указатель на имя файла
+	add dx, 2
+	int 21h ; В ax деcкриптор файла
+
+    mov ah, 3Fh ; Чтение из файла
+    mov dx, buffer ; Адрес буфера для данных
+    mov cx, 80 ; Максимальное кол-во читаемых байтов
+    int 21h ; Обращение к функции DOS
+    jc io_file_read_close ; Ошибка - выйти из программы
+	
+print_result_loop:
+	mov ah, 9
+    mov dx, buffer
+    int 21h ; Вывод строки с именем файла
+
+	cmp ax, cx ; Если достигнуть EoF или ошибка чтения
+	jc io_file_read_close ; То закрываем файл закрываем файл
+
+	lodsb
+
+	jmp print_result_loop
+
+print_result_error:
+	call print_no_result
+	ret
+
+print_result endp
 
 ; =============== Очистка результата ===============
 
 flush proc near
-	mov result_pos, -1
-	mov cx, result_size
+	mov cx, file_length
 	xor si, si
 
 flush_result:
-	mov result[si], "$"
+	mov result_file[si], 0h
 	inc si
 	loop flush_result
 

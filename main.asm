@@ -16,10 +16,6 @@ model small
 	part1         dd 0b
 	part2         dd 0b
 
-	result_size   equ 30000 ; Максимальный размер результата
-	result_pos    dw -1 ; Текущая позиция результата
-	result        db result_size dup("$") ; Результат обработки строк
-
 	input_string  db 'Input string:',10,13,"$"
 
 ; ================================================================================
@@ -36,12 +32,12 @@ extrn print_no_result:near
 extrn io_file_read:near
 extrn io_file_save:near
 
+extrn io_result_true:near
+extrn io_result_false:near
+
 extrn buffer:byte
 
 public work
-public result
-public result_pos
-public result_size
 
 start:
 	mov ax, @data
@@ -104,7 +100,7 @@ new_string_loop:
 work proc near
 	xor ax, ax
 	xor si, si
-	inc result_pos
+
 	mov sum, 0
 
 work_sign:
@@ -145,14 +141,12 @@ work_compare:
 	jne work_write_false
 	je work_write_true
 
-work_write_false:
-	mov si, result_pos
-	mov result[esi], "0"
-	ret
-
 work_write_true:
-	mov si, result_pos
-	mov result[esi], "1"
+	call io_result_true
+	ret
+	
+work_write_false:
+	call io_result_false
 	ret
 work endp
 
@@ -169,10 +163,6 @@ file_read:
 ; =============== Сохранение файла ===============
 
 file_save:
-	cmp result[0], "$" ; Проверяем, есть ли результат
-	je no_result
-	
-	lea si, result
 	call io_file_save
 
 	jmp main
@@ -181,7 +171,6 @@ file_save:
 
 ; Вывод результата на экран
 output:
-	lea dx, result
 	call print_result
 	jmp main
 

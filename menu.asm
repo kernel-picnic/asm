@@ -22,7 +22,6 @@ model small
 extrn result:byte
 
 public print_menu
-public print_result
 public print_no_input
 public print_no_string
 public print_no_result
@@ -55,19 +54,6 @@ print_menu proc near
 
 	ret
 print_menu endp
-
-; =============== Вывод результата на экран ===============
-
-print_result proc near
-	cmp result[0], "$" ; Проверяем, есть ли результат
-	je print_no_result
-
-print_result_loop:
-	mov ah, 9
-	int 21h
-
-	ret
-print_result endp
 
 ; =============== Отсутствует главная строка ===============
 
