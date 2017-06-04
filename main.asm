@@ -35,6 +35,8 @@ extrn io_file_save:near
 extrn io_result_true:near
 extrn io_result_false:near
 
+extrn flush:near
+
 extrn buffer:byte
 
 public work
@@ -153,18 +155,15 @@ work endp
 ; =============== Загрузка из файла ===============
 
 file_read:
-	cmp main_string[2], "$" ; Проверяем, есть ли строка
+	cmp main_string[2], "$" ; Проверяем, есть ли  главная строка
 	je no_string
-
 	call io_file_read
-
 	jmp main
 
 ; =============== Сохранение файла ===============
 
 file_save:
 	call io_file_save
-
 	jmp main
 
 ; =============== Разное ===============
@@ -187,6 +186,7 @@ no_result:
 ; =============== Конец программы ===============
 
 exit:
+	call flush
 	mov ax, 4c00h
 	int 21h
 
