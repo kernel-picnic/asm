@@ -7,7 +7,9 @@ model small
 	buffer          dw buffer_size, ?, buffer_size dup(?) ; Буффер
 	result_exists   db 0
 
-	handle          dw 0 ; Дескриптор файла
+	handle1         dw 0 ; Дескриптор файла 1
+	handle2         dw 0 ; Дескриптор файла 2
+
 	file_length     equ 50 ; Длинна вводимого пути файлов
 	input_file      db file_length, ?, file_length dup(0)
 	output_file     db file_length, ?, file_length dup(0)
@@ -77,14 +79,14 @@ io_file_read_remove_enter:
 	int 21h ; В ax деcкриптор файла
 	jc io_file_error ; Если поднят флаг С, то ошибка открытия
 
-	mov handle, ax ; Сохраняем указатель файла
-	mov bx, handle
+	mov handle1, ax ; Сохраняем указатель файла
+	mov bx, handle1
 	xor cx, cx
 	xor dx, dx
 	mov ax, 4200h
 	int 21h ; Идем к началу файла
 	lea dx, buffer
-	lea si, buffer
+	lea si, buffer ; Нужно для lodsb
 
 io_file_read_loop:
 	mov ah, 3fh ; Будем читать из файла
@@ -105,7 +107,7 @@ io_file_read_loop:
 	jmp io_file_read_loop
 
 io_file_read_work:
-	push handle
+	push handle1
 
 	call work
 
@@ -124,6 +126,7 @@ io_file_read_close: ; Закрываем файл, после чтения
 	mov result_exists, 1
 
 	mov ah, 3eh
+	mov bx, handle1
 	int 21h
 
 	; Самостоятельно записываем 0Dh,
@@ -138,9 +141,8 @@ io_file_read endp
 ; =============== Сохранение файла ===============
 
 io_file_save proc near
-	; На всякий пожарный почистим переменную
-	; с файлом, в который будет веведен результат
-	; call flush_output_file
+	cmp result_exists, 0 ; Проверяем, есть ли результат
+	je print_result_error
 
 	lea dx, file_input_str
 	mov ah, 9
@@ -164,35 +166,46 @@ io_file_save_remove_enter:
 	add dx, 2
 	xor cx, cx ; Нет атрибутов - обычный файл
 	int 21h ; Обращение к функции DOS
-	jnc io_file_save_process ; Если нет ошибки, то продолжаем
-	jmp io_file_error
+	jc io_file_error
+
+	mov handle1, ax
+
+	mov ax, 3d00h
+	lea dx, result_file
+	int 21h
+
+	mov handle2, ax
 
 io_file_save_process:
-	mov bx, ax ; Дескриптор файла
-	mov cx, 1 ; Размер данных
-	xor dx, dx
-	xor di, di
+	; Считали
+    mov ah, 3Fh
+    mov cx, 1
+	mov bx, handle2
+	lea dx, buffer
+    int 21h
+	
+	cmp ax, cx ; Если достигнут EoF или ошибка чтения
+	jc io_file_save_close ; То закрываем файл
 
-io_file_save_process_loop:
-	;cmp result[di], "$"
-	;je io_file_save_close
-
-	mov ah, 40h ; Функция DOS 40h (запись в файл)
-	mov dx, si ; Данные
+	; Записали
+	mov ah, 40h
+	mov cx, 1
+	mov bx, handle1
 	int 21h
 
-	jc io_file_error ; Вывод сообщения об ошибке
-
-	inc di
-	inc si
-
-	jmp io_file_save_process_loop
+	jmp io_file_save_process
 
 io_file_save_close:
-	mov ah, 3Eh ; Функция DOS 3Eh (закрытие файла)
+	; Закрыли все файлы
+	mov ah, 3eh
+	mov bx, handle1
 	int 21h
-	jnc exit ; Нет ошибки
-	jmp io_file_error ; Вывод сообщения об ошибке
+
+	mov ah, 3eh
+	mov bx, handle2
+	int 21h
+
+	ret
 io_file_save endp
 
 ; =============== Ошибка обработки файла ===============
@@ -270,8 +283,6 @@ print_result_loop:
 	mov ah, 9
     int 21h ; Вывод
 
-	inc dx
-
 	jmp print_result_loop
 
 print_result_error:
@@ -282,7 +293,6 @@ print_result_close:
 	mov ah, 3eh
 	int 21h
 	ret
-
 print_result endp
 
 ; =============== Очистка результата ===============
