@@ -178,11 +178,6 @@ no_string:
 	call print_no_string
 	jmp main
 
-; Отсутствует результат
-no_result:
-	call print_no_result
-	jmp main
-
 ; =============== Конец программы ===============
 
 exit:

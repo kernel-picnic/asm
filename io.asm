@@ -5,6 +5,7 @@ model small
 .data
 	buffer_size     equ 1600
 	buffer          dw buffer_size, ?, buffer_size dup(?) ; Буффер
+	result_exists   db 0
 
 	handle          dw 0 ; Дескриптор файла
 	file_length     equ 50 ; Длинна вводимого пути файлов
@@ -25,10 +26,14 @@ extrn seed:word
 
 public flush
 public buffer
+
 public io_file_read
 public io_file_save
+
 public io_result_true
 public io_result_false
+
+public print_result
 
 ; =============== Загрузка строк из файла ===============
 
@@ -86,8 +91,8 @@ io_file_read_loop:
 	mov cx, 1 ; 1 байт
 	int 21h
 
-	cmp ax, cx ; Если достигнуть EoF или ошибка чтения
-	jnz io_file_read_close ; То закрываем файл закрываем файл
+	cmp ax, cx ; Если достигнут EoF или ошибка чтения
+	jnz io_file_read_close ; То закрываем файл
 
 	lodsb
 
@@ -116,6 +121,8 @@ io_file_read_work:
 	jmp io_file_read_loop
 
 io_file_read_close: ; Закрываем файл, после чтения
+	mov result_exists, 1
+
 	mov ah, 3eh
 	int 21h
 
@@ -184,7 +191,7 @@ io_file_save_process_loop:
 io_file_save_close:
 	mov ah, 3Eh ; Функция DOS 3Eh (закрытие файла)
 	int 21h
-	jnc exit ; Если нет ошибки, то выход из программы
+	jnc exit ; Нет ошибки
 	jmp io_file_error ; Вывод сообщения об ошибке
 io_file_save endp
 
@@ -244,29 +251,26 @@ io_result_write:
 ; =============== Вывод результата на экран ===============
 
 print_result proc near
-	cmp result_file[0], 0 ; Проверяем, есть ли результат
+	cmp result_exists, 0 ; Проверяем, есть ли результат
 	je print_result_error
 
 	mov ax, 3d00h ; Открываем для чтения
 	lea dx, result_file ; DS:DX указатель на имя файла
-	add dx, 2
-	int 21h ; В ax деcкриптор файла
+	int 21h
 
-    mov ah, 3Fh ; Чтение из файла
-    mov dx, buffer ; Адрес буфера для данных
-    mov cx, 80 ; Максимальное кол-во читаемых байтов
-    int 21h ; Обращение к функции DOS
-    jc io_file_read_close ; Ошибка - выйти из программы
-	
 print_result_loop:
+    mov ah, 3Fh ; Чтение из файла
+    mov cx, 1
+	mov dx, buffer
+    int 21h
+
+	cmp ax, cx ; Если достигнут EoF или ошибка чтения
+	jc print_result_close ; То закрываем файл
+
 	mov ah, 9
-    mov dx, buffer
-    int 21h ; Вывод строки с именем файла
+    int 21h ; Вывод
 
-	cmp ax, cx ; Если достигнуть EoF или ошибка чтения
-	jc io_file_read_close ; То закрываем файл закрываем файл
-
-	lodsb
+	inc dx
 
 	jmp print_result_loop
 
@@ -274,11 +278,18 @@ print_result_error:
 	call print_no_result
 	ret
 
+print_result_close:
+	mov ah, 3eh
+	int 21h
+	ret
+
 print_result endp
 
 ; =============== Очистка результата ===============
 
 flush proc near
+	mov result_exists, 0
+
 	; Удаляем temp файл
 	mov ah, 41h
 	lea dx, result_file
