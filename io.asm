@@ -271,9 +271,12 @@ print_result proc near
 	lea dx, result_file ; DS:DX указатель на имя файла
 	int 21h
 
+	mov handle1, ax
+
 print_result_loop:
     mov ah, 3Fh ; Чтение из файла
     mov cx, 1
+	mov bx, handle1
 	mov dx, buffer
     int 21h
 
@@ -291,6 +294,7 @@ print_result_error:
 
 print_result_close:
 	mov ah, 3eh
+	mov bx, handle1
 	int 21h
 	ret
 print_result endp
