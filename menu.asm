@@ -13,8 +13,8 @@ model small
 	menu_choose      db 'Select option:',10,13,"$"
 
 	menu_error       db 'There are no such option in menu. Are you sure that you wrote correct number, man?',10,13,"$"
-	menu_no_string   db 'Please input main string firstly.',10,13,"$"
-	menu_no_result   db 'No result. Load strings from file and run again.',10,13,"$"
+	menu_no_string   db 'Please input main string firstly',10,13,"$"
+	menu_no_result   db 'No result. Load strings from file and run again',10,13,"$"
 
 .code
 .486

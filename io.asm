@@ -15,9 +15,13 @@ model small
 	output_file     db file_length, ?, file_length dup(0)
 	result_file     db 12 dup(0) ; Temp файл для хранения результата
 
-	file_input_str  db 'Input filename: ',10,13,"$"
-	file_error_str  db 'Error while processing file. ;-(',10,13,"$" 
+	file_input_str  db 'Input filename: ',10,13,'$'
+	file_error_str  db 'Error while processing file. ;-(',10,13,'$' 
 
+	error1_str      db 10,13,'Error while processing file',10,13,'$'
+	error2_str      db 10,13,'Path not found',10,13,'$' 
+	error3_str      db 10,13,'Too much opened files',10,13,'$'
+	error4_str      db 10,13,'Permission denied',10,13,'$'
 .code
 .486
 
@@ -167,7 +171,7 @@ io_file_save_remove_enter:
 	lea dx, output_file
 	add dx, 2
 	xor cx, cx ; Нет атрибутов - обычный файл
-	int 21h ; Обращение к функции DOS
+	int 21h
 	jc io_file_error
 
 	mov handle1, ax
@@ -210,13 +214,43 @@ io_file_save_close:
 	ret
 io_file_save endp
 
+process_error proc
+	cmp ax, 3
+	je error2
+	cmp ax, 4
+	je error3
+	cmp ax, 5
+	je error4
+
+error1:
+	mov ah, 9h
+	lea dx, error1_str
+	int 21h
+	ret
+
+error2:
+	mov ah, 9h
+	lea dx, error2_str
+	int 21h
+	ret
+
+error3:
+	mov ah, 9h
+	lea dx, error3_str
+	int 21h
+	ret
+
+error4:
+	mov ah, 9h
+	lea dx, error4_str
+	int 21h
+	ret
+process_error endp
+
 ; =============== Ошибка обработки файла ===============
 
 io_file_error:
-	lea dx, file_error_str
-	mov ah, 9
-	int 21h
-
+	call process_error
 	ret
 	
 ; =============== Сохранение и выгрузка результата ===============
