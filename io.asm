@@ -43,12 +43,13 @@ io_file_read proc near
 	call flush
 	
 	; Создаем temp файл
-	; Файл будет создан в текущей директории
+	; он будет создан в текущей директории (./)
 	mov result_file[0], "."
 	mov result_file[1], "/"
 
 	mov ah, 5Ah
 	lea dx, result_file
+	mov cx, 02h ; Скрытый файл (⌐■_■)
 	int 21h
 	mov bx, ax
 	mov ah, 3Eh
@@ -107,6 +108,7 @@ io_file_read_loop:
 	jmp io_file_read_loop
 
 io_file_read_work:
+	; Сохраняем дескриптор к стеке
 	push handle1
 
 	call work
