@@ -214,6 +214,12 @@ io_file_save_close:
 	ret
 io_file_save endp
 
+; =============== Ошибка обработки файла ===============
+
+io_file_error:
+	call process_error
+	ret
+	
 process_error proc
 	cmp ax, 3
 	je error2
@@ -246,12 +252,6 @@ error4:
 	int 21h
 	ret
 process_error endp
-
-; =============== Ошибка обработки файла ===============
-
-io_file_error:
-	call process_error
-	ret
 	
 ; =============== Сохранение и выгрузка результата ===============
 
@@ -313,13 +313,18 @@ print_result_loop:
     mov ah, 3Fh ; Чтение из файла
     mov cx, 1
 	mov bx, handle1
-	mov dx, buffer
+	mov dx, buffer[0]
     int 21h
 
 	cmp ax, cx ; Если достигнут EoF или ошибка чтения
 	jc print_result_close ; То закрываем файл
 
 	mov ah, 9
+	; Помещаем в конец считанной строки символ конца строки ($),
+	; иначе при выводе не будет найден конец и будет выведена
+	; куча мусора из памяти
+	mov esi, "$"
+	mov [edx+1], esi
     int 21h ; Вывод
 
 	jmp print_result_loop
